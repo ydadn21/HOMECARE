@@ -1,0 +1,244 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required, immutable)
+    //   - name: string (required, size < 100)
+    //   - email: string (required, email format)
+    //   - role: string (required, enum: ['client', 'admin'])
+    //   - createdAt: string (optional, ISO 8601)
+    //
+    // Collection: reminders
+    // Document ID: {reminderId}
+    // Fields:
+    //   - uid: string (required, immutable, matches auth.uid)
+    //   - type: string (required, enum: ['medication', 'appointment', 'follow-up'])
+    //   - title: string (required, size < 200)
+    //   - time: string (required, format HH:mm)
+    //   - frequency: string (required, size < 100)
+    //   - isActive: bool (required)
+    //   - createdAt: string (optional, ISO 8601)
+    //
+    // Collection: forum_posts
+    // Document ID: {postId}
+    // Fields:
+    //   - uid: string (required, immutable, matches auth.uid)
+    //   - category: string (required, enum: ['rehab', 'elderly', 'mother-baby', 'general'])
+    //   - title: string (required, size < 200)
+    //   - author: string (required, size < 100)
+    //   - content: string (required, size < 5000)
+    //   - likes: int (required, >= 0)
+    //   - replies: int (required, >= 0)
+    //   - date: string (required, ISO 8601)
+    //   - createdAt: string (optional, ISO 8601)
+    //
+    // Collection: rehab_logs
+    // Document ID: {logId}
+    // Fields:
+    //   - uid: string (required, immutable, matches auth.uid)
+    //   - date: string (required, ISO 8601)
+    //   - exerciseName: string (required, size < 200)
+    //   - duration: int (required, > 0)
+    //   - reps: int (required, > 0)
+    //   - notes: string (optional, size < 1000)
+    //   - mood: string (required, enum: ['good', 'neutral', 'bad'])
+    //   - createdAt: string (optional, ISO 8601)
+    //
+    // Collection: bookings
+    // Document ID: {bookingId}
+    // Fields:
+    //   - uid: string (required, immutable, matches auth.uid)
+    //   - serviceId: string (required)
+    //   - serviceName: string (required)
+    //   - proId: string (required)
+    //   - proName: string (required)
+    //   - date: string (required, ISO 8601)
+    //   - time: string (required, format HH:mm)
+    //   - address: string (required, size < 500)
+    //   - status: string (required, enum: ['pending', 'confirmed', 'completed', 'cancelled'])
+    //   - createdAt: string (optional, ISO 8601)
+    //
+    // Collection: reviews
+    // Document ID: {reviewId}
+    // Fields:
+    //   - uid: string (required, immutable, matches auth.uid)
+    //   - professionalId: string (required)
+    //   - userName: string (required, size < 100)
+    //   - rating: int (required, 1-5)
+    //   - comment: string (required, size < 1000)
+    //   - date: string (required, ISO 8601)
+    //   - createdAt: string (optional, ISO 8601)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "yendan2109@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidDateString(dateStr) {
+      return dateStr is string && dateStr.matches("^\\d{4}-\\d{2}-\\d{2}.*");
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUser(data) {
+      return hasRequiredFields(['uid', 'name', 'email', 'role']) &&
+             data.uid is string && data.uid.size() > 0 &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             isValidEmail(data.email) &&
+             data.role in ['client', 'admin'];
+    }
+
+    function isValidReminder(data) {
+      return hasRequiredFields(['uid', 'type', 'title', 'time', 'frequency', 'isActive']) &&
+             data.uid == request.auth.uid &&
+             data.type in ['medication', 'appointment', 'follow-up'] &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.time is string && data.time.matches("^\\d{2}:\\d{2}$") &&
+             data.frequency is string && data.frequency.size() > 0 && data.frequency.size() < 100 &&
+             data.isActive is bool;
+    }
+
+    function isValidForumPost(data) {
+      return hasRequiredFields(['uid', 'category', 'title', 'author', 'content', 'likes', 'replies', 'date']) &&
+             data.uid == request.auth.uid &&
+             data.category in ['rehab', 'elderly', 'mother-baby', 'general'] &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.author is string && data.author.size() > 0 && data.author.size() < 100 &&
+             data.content is string && data.content.size() > 0 && data.content.size() < 5000 &&
+             data.likes is int && data.likes >= 0 &&
+             data.replies is int && data.replies >= 0 &&
+             isValidDateString(data.date);
+    }
+
+    function isValidRehabLog(data) {
+      return hasRequiredFields(['uid', 'date', 'exerciseName', 'duration', 'reps', 'mood']) &&
+             data.uid == request.auth.uid &&
+             isValidDateString(data.date) &&
+             data.exerciseName is string && data.exerciseName.size() > 0 && data.exerciseName.size() < 200 &&
+             data.duration is int && data.duration > 0 &&
+             data.reps is int && data.reps > 0 &&
+             data.mood in ['good', 'neutral', 'bad'];
+    }
+
+    function isValidBooking(data) {
+      return hasRequiredFields(['uid', 'serviceId', 'serviceName', 'proId', 'proName', 'date', 'time', 'address', 'status']) &&
+             data.uid == request.auth.uid &&
+             data.serviceId is string &&
+             data.serviceName is string &&
+             data.proId is string &&
+             data.proName is string &&
+             isValidDateString(data.date) &&
+             data.time is string && data.time.matches("^\\d{2}:\\d{2}$") &&
+             data.address is string && data.address.size() > 0 && data.address.size() < 500 &&
+             data.status in ['pending', 'confirmed', 'completed', 'cancelled'];
+    }
+
+    function isValidReview(data) {
+      return hasRequiredFields(['uid', 'professionalId', 'userName', 'rating', 'comment', 'date']) &&
+             data.uid == request.auth.uid &&
+             data.professionalId is string &&
+             data.userName is string && data.userName.size() > 0 && data.userName.size() < 100 &&
+             data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+             data.comment is string && data.comment.size() > 0 && data.comment.size() < 1000 &&
+             isValidDateString(data.date);
+    }
+
+    // ===============================================================
+    // Match Rules
+    // ===============================================================
+
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(uid) && request.resource.data.role == 'client' || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(uid) && request.resource.data.role == resource.data.role || isAdmin());
+    }
+
+    match /reminders/{reminderId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidReminder(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidReminder(request.resource.data) && isDocOwner() && uidNotModified();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /forum_posts/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidForumPost(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidForumPost(request.resource.data) && (isDocOwner() || isAdmin()) && uidNotModified();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /rehab_logs/{logId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidRehabLog(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidRehabLog(request.resource.data) && isDocOwner() && uidNotModified();
+      allow delete: if isDocOwner() || isAdmin();
+    }
+
+    match /bookings/{bookingId} {
+      allow read: if isDocOwner() || isAdmin();
+      allow create: if isAuthenticated() && isValidBooking(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidBooking(request.resource.data) && (isDocOwner() || isAdmin()) && uidNotModified();
+      allow delete: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isValidReview(request.resource.data) && uidUnchanged();
+      allow update: if isAuthenticated() && isValidReview(request.resource.data) && (isDocOwner() || isAdmin()) && uidNotModified();
+      allow delete: if isAdmin();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

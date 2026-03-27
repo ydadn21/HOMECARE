@@ -1,0 +1,9 @@
+{
+  "name": "HomeCare Plus",
+  "description": "Nền tảng chăm sóc sức khỏe tại nhà hiện đại kết nối dịch vụ y tế với AI và IoT.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}

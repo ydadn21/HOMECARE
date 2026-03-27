@@ -1,0 +1,124 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["client", "admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "role"]
+    },
+    "Reminder": {
+      "title": "Reminder",
+      "description": "Health and medication reminders",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "type": { "type": "string", "enum": ["medication", "appointment", "follow-up"] },
+        "title": { "type": "string" },
+        "time": { "type": "string" },
+        "frequency": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "type", "title", "time", "isActive"]
+    },
+    "ForumPost": {
+      "title": "ForumPost",
+      "description": "Community forum posts",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "category": { "type": "string", "enum": ["rehab", "elderly", "mother-baby", "general"] },
+        "title": { "type": "string" },
+        "author": { "type": "string" },
+        "content": { "type": "string" },
+        "likes": { "type": "integer" },
+        "replies": { "type": "integer" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "category", "title", "author", "content"]
+    },
+    "RehabLog": {
+      "title": "RehabLog",
+      "description": "Rehabilitation exercise logs",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "date": { "type": "string" },
+        "exerciseName": { "type": "string" },
+        "duration": { "type": "integer" },
+        "reps": { "type": "integer" },
+        "notes": { "type": "string" },
+        "mood": { "type": "string", "enum": ["good", "neutral", "bad"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "date", "exerciseName", "duration", "reps", "mood"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "Service booking information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "proId": { "type": "string" },
+        "proName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "address": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "completed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "serviceId", "proId", "date", "time", "address", "status"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Professional reviews",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "professionalId": { "type": "string" },
+        "userName": { "type": "string" },
+        "rating": { "type": "integer" },
+        "comment": { "type": "string" },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "professionalId", "userName", "rating", "comment"]
+    }
+  },
+  "firestore": {
+    "/users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "/reminders/{reminderId}": {
+      "schema": "Reminder",
+      "description": "User reminders"
+    },
+    "/forum_posts/{postId}": {
+      "schema": "ForumPost",
+      "description": "Community posts"
+    },
+    "/rehab_logs/{logId}": {
+      "schema": "RehabLog",
+      "description": "Rehab progress logs"
+    },
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Service bookings"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Professional reviews"
+    }
+  }
+}
